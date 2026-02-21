@@ -42,10 +42,10 @@ $$p_t^{CEX}=\log(P_t^{CEX}), \qquad p_t^{DEX}=\log(P_t^{DEX}).$$
 Define 1-minute log returns:
 $$r_t^{CEX}=p_t^{CEX}-p_{t-1}^{CEX}, \qquad r_t^{DEX}=p_t^{DEX}-p_{t-1}^{DEX}.$$
 
-### 3.2 Basis / cross-venue spread (in bps)
+### 3.2 Wedge / cross-venue spread (in bps)
 Define the signed wedge:
 $$b_t=p_t^{CEX}-p_t^{DEX}.$$
-Convert to basis points (bps):
+Convert to bps:
 $$b_t^{bps}=10{,}000\cdot b_t,$$
 and define
 $$|b_t|^{bps}=|b_t^{bps}|.$$
@@ -152,7 +152,7 @@ If $\delta_k>0$, CEX leads DEX more during high relative congestion, consistent 
 ## 5. Structural extension (state-space / Kalman filtering)
 
 ### 5.1 States
-We model a latent **efficient price** and a latent **spread/basis**:
+We model a latent **efficient price** and a latent **spread/wedge**:
 $$x_t=\begin{bmatrix}p_t^*\\ s_t\end{bmatrix}.$$
 
 ### 5.2 State dynamics

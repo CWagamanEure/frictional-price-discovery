@@ -1,0 +1,41 @@
+[
+  {
+    "minute_utc": "2025-01-01T00:00:00Z",
+    "basis_5_bps": 10.0,
+    "basis_30_bps": -20.0,
+    "basis_spread_bps": -30.0,
+    "implied_band_5_bps": 5.4,
+    "implied_band_30_bps": 30.4,
+    "violation_5": true,
+    "violation_30": false,
+    "violation_5_mag_bps": 4.6,
+    "violation_30_mag_bps": 0.0,
+    "realized_vol_annualized": null
+  },
+  {
+    "minute_utc": "2025-01-01T00:01:00Z",
+    "basis_5_bps": 14.851485148515113,
+    "basis_30_bps": -39.60396039603964,
+    "basis_spread_bps": -54.45544554455476,
+    "implied_band_5_bps": 5.5,
+    "implied_band_30_bps": 30.5,
+    "violation_5": true,
+    "violation_30": true,
+    "violation_5_mag_bps": 9.351485148515113,
+    "violation_30_mag_bps": 9.103960396039637,
+    "realized_vol_annualized": 0.0
+  },
+  {
+    "minute_utc": "2025-01-01T00:02:00Z",
+    "basis_5_bps": -9.95024875621894,
+    "basis_30_bps": 19.90049751243788,
+    "basis_spread_bps": 29.85074626865682,
+    "implied_band_5_bps": 5.3,
+    "implied_band_30_bps": 30.3,
+    "violation_5": true,
+    "violation_30": false,
+    "violation_5_mag_bps": 4.65024875621894,
+    "violation_30_mag_bps": 0.0,
+    "realized_vol_annualized": 0.0
+  }
+]
