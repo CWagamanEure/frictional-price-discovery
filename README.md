@@ -126,6 +126,36 @@ Measure:
 - Foundation for structural latent price modeling.
 
 
+## Definitions and scope
+
+- Here, I will define the various terms that I will be throwing around in this research project, along with the exact specifications of which markets and token will be researched. 
+
+- **Basis $b_t$** - the difference between DEX and CEX prices for the same asset at time t.
+
+$b_t := p_t^{DEX} - p_t^{CEX}$
+
+- **Implied-arbitrage band $C_t$** - An estimate of total round-trip execution costs required to  move price pressure across venues (gas + DEX fees + price impact/slippage + CEX taker fee + MEV penalty).
+
+$C_t := C_t^{gas} + C_t^{dex fee} + C_t^{impact} + C_t^{cex fee} + C_t^{mev}$
+
+Where "within-band" means $|b_t| \leq C_t$
+
+- **Violation** - Where the basis exceeds the no-arbitrage band. 
+
+- Violation indicator: $V_t := 1{|b_t| > C_t}$
+
+- Violation magnitude: $M_t := max(0,|b_t| - C_t)$
+
+- **Reversion Equation** - 
+
+If $P^{DEX}$ and $p^{CEX}$ are cointegrated:
+
+$Δp_t^{DEX} = α * (p_{t-1}^{DEX} - p_{t-1}^{CEX}) + β'X_t + ϵ_t$
+
+- **Market Scope** - 
+
+We study WETH/USDC 0.05% and 0.30% fee tiers on Uniswap v3 (Ethereum Mainnet) as the DEX venue, and ETH USD mid prices from Coinbase. We will use 1-minute sampling for the core regressions, in order to capture congestion and frictions most effectively. It also avoids the very noisy microstructure data of 1s. Block level gas data and on-chain features will be aggregated to the minute. 
+
 
 
 
