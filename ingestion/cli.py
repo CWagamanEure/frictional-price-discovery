@@ -11,7 +11,6 @@ from pathlib import Path
 
 from ingestion.config import load_config, parse_utc_datetime
 from ingestion.export import export_records
-from ingestion.features import compute_features
 from ingestion.logging import get_logger
 from ingestion.pipeline_align import build_aligned_from_raw_run
 from ingestion.pipeline_full import run_full_pipeline
@@ -124,16 +123,6 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["json", "parquet", "both"],
     )
 
-    features_preview = subparsers.add_parser(
-        "features-preview",
-        help="Compute engineered features from aligned minute records JSON.",
-    )
-    features_preview.add_argument("--input-json", required=True)
-    features_preview.add_argument("--output-json", default=None)
-    features_preview.add_argument("--realized-vol-window", default=30, type=int)
-    features_preview.add_argument("--annualization-minutes", default=525600, type=int)
-    features_preview.add_argument("--gas-weight-bps-per-gwei", default=0.02, type=float)
-
     export_preview = subparsers.add_parser(
         "export-preview",
         help="Export JSON records to Parquet + metadata JSON.",
@@ -170,14 +159,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     process_run = subparsers.add_parser(
         "process-run",
-        help="Run features + validation/report + parquet export from aligned JSON.",
+        help="Run dataset shaping + validation/report + parquet export from aligned JSON.",
     )
     process_run.add_argument("--input-json", required=True)
     process_run.add_argument("--output-dir", default="data/processed")
-    process_run.add_argument("--dataset-name", default="features")
+    process_run.add_argument("--dataset-name", default="aligned_dataset")
     process_run.add_argument("--realized-vol-window", default=30, type=int)
     process_run.add_argument("--annualization-minutes", default=525600, type=int)
-    process_run.add_argument("--gas-weight-bps-per-gwei", default=0.02, type=float)
     process_run.add_argument("--fail-on-warnings", action="store_true")
 
     full_run = subparsers.add_parser(
@@ -192,7 +180,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="data/interim/aligned_records.json",
     )
     full_run.add_argument("--processed-output-dir", default="data/processed")
-    full_run.add_argument("--dataset-name", default="features")
+    full_run.add_argument("--dataset-name", default="aligned_dataset")
     full_run.add_argument("--graph-endpoint", default=None)
     full_run.add_argument("--graph-api-key", default=None)
     full_run.add_argument("--graph-subgraph-id", default=None)
@@ -218,7 +206,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     full_run.add_argument("--realized-vol-window", default=30, type=int)
     full_run.add_argument("--annualization-minutes", default=525600, type=int)
-    full_run.add_argument("--gas-weight-bps-per-gwei", default=0.02, type=float)
     full_run.add_argument("--fail-on-warnings", action="store_true")
     full_run.add_argument("--min-uniswap5-coverage", default=0.9, type=float)
     full_run.add_argument("--min-uniswap30-coverage", default=0.05, type=float)
@@ -320,35 +307,6 @@ def run_gas_preview(args: argparse.Namespace) -> int:
         len(block_rows),
         len(minute_rows),
     )
-    return 0
-
-
-def run_features_preview(args: argparse.Namespace) -> int:
-    """Compute feature set from aligned records in a JSON file."""
-    logger = get_logger()
-    input_path = Path(args.input_json)
-    records = json.loads(input_path.read_text(encoding="utf-8"))
-    if not isinstance(records, list):
-        raise ValueError("input JSON must be a list of records")
-
-    features = compute_features(
-        records,
-        realized_vol_window=args.realized_vol_window,
-        annualization_minutes=args.annualization_minutes,
-        gas_weight_bps_per_gwei=args.gas_weight_bps_per_gwei,
-    )
-
-    if args.output_json:
-        output_path = Path(args.output_json)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(json.dumps(features, indent=2), encoding="utf-8")
-        logger.info(
-            "features preview computed %s rows and wrote %s",
-            len(features),
-            output_path,
-        )
-    else:
-        logger.info("features preview computed %s rows", len(features))
     return 0
 
 
@@ -455,14 +413,23 @@ def run_validate_preview(args: argparse.Namespace) -> int:
                 "coinbase_close": (0.0, None),
             },
             warning_numeric_ranges={
-                "basis_5_bps": (-10_000.0, 10_000.0),
-                "basis_30_bps": (-10_000.0, 10_000.0),
+                "uniswap5_token0_price": (0.0, None),
+                "uniswap30_token0_price": (0.0, None),
+                "uniswap5_flow_usd": (0.0, None),
+                "uniswap30_flow_usd": (0.0, None),
+                "uniswap5_swap_count": (0.0, None),
+                "uniswap30_swap_count": (0.0, None),
+                "coinbase_volume": (0.0, None),
+                "gas_base_fee_per_gas_wei": (0.0, None),
+                "gas_base_fee_gwei": (0.0, None),
+                "gas_usd": (0.0, None),
+                "congestion_30d_pct": (0.0, 1.0),
                 "realized_vol_annualized": (0.0, None),
             },
             warning_missing_thresholds={
                 "coinbase_close": 0.2,
-                "basis_5_bps": 0.2,
-                "basis_30_bps": 0.2,
+                "uniswap5_token0_price": 0.2,
+                "uniswap30_token0_price": 0.95,
             },
             fail_on_warnings=args.fail_on_warnings,
         )
@@ -475,8 +442,32 @@ def run_validate_preview(args: argparse.Namespace) -> int:
         expected_columns={
             "minute_utc",
             "coinbase_close",
-            "basis_5_bps",
-            "basis_30_bps",
+            "coinbase_volume",
+            "coinbase_log_price",
+            "coinbase_log_return",
+            "uniswap5_token0_price",
+            "uniswap30_token0_price",
+            "uniswap5_log_price",
+            "uniswap30_log_price",
+            "uniswap5_log_return",
+            "uniswap30_log_return",
+            "wedge_5_price_diff",
+            "wedge_30_price_diff",
+            "wedge_5_bps",
+            "wedge_30_bps",
+            "gas_base_fee_gwei",
+            "gas_usd",
+            "congestion_30d_pct",
+            "uniswap5_flow_usd",
+            "uniswap30_flow_usd",
+            "uniswap5_swap_count",
+            "uniswap30_swap_count",
+            "gas_base_fee_per_gas_wei",
+            "uniswap5_age_since_last_trade_min",
+            "uniswap30_age_since_last_trade_min",
+            "uniswap5_fee_tier_bps",
+            "uniswap30_fee_tier_bps",
+            "realized_vol_annualized",
         },
     )
     report["validation_issues"] = [
@@ -502,7 +493,6 @@ def run_process_run(args: argparse.Namespace) -> int:
             dataset_name=args.dataset_name,
             realized_vol_window=args.realized_vol_window,
             annualization_minutes=args.annualization_minutes,
-            gas_weight_bps_per_gwei=args.gas_weight_bps_per_gwei,
             fail_on_warnings=args.fail_on_warnings,
         )
     except ValidationError as exc:
@@ -510,8 +500,8 @@ def run_process_run(args: argparse.Namespace) -> int:
         return 1
 
     logger.info(
-        "process-run completed features=%s report=%s parquet=%s metadata=%s issues=%s",
-        result.feature_json_path,
+        "process-run completed dataset=%s report=%s parquet=%s metadata=%s issues=%s",
+        result.dataset_json_path,
         result.report_json_path,
         result.parquet_path,
         result.metadata_path,
@@ -567,7 +557,6 @@ def run_full_run(args: argparse.Namespace) -> int:
             raw_format=args.raw_format,
             realized_vol_window=args.realized_vol_window,
             annualization_minutes=args.annualization_minutes,
-            gas_weight_bps_per_gwei=args.gas_weight_bps_per_gwei,
             fail_on_warnings=args.fail_on_warnings,
             min_uniswap5_coverage=args.min_uniswap5_coverage,
             min_uniswap30_coverage=args.min_uniswap30_coverage,
@@ -583,12 +572,12 @@ def run_full_run(args: argparse.Namespace) -> int:
     logger.info(
         (
             "full-run completed run_id=%s quality_issues=%s aligned=%s "
-            "features=%s summary=%s"
+            "dataset=%s summary=%s"
         ),
         result.raw_result.run_id,
         result.quality_issue_count,
         result.aligned_json_path,
-        result.processed_result.feature_json_path,
+        result.processed_result.dataset_json_path,
         result.summary_json_path,
     )
     return 0
@@ -645,8 +634,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_gas_preview(args)
     if args.command == "raw-ingest":
         return run_raw_ingest(args)
-    if args.command == "features-preview":
-        return run_features_preview(args)
     if args.command == "export-preview":
         return run_export_preview(args)
     if args.command == "validate-preview":

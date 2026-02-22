@@ -16,7 +16,7 @@ class _FakeRawResult:
 
 @dataclass
 class _FakeProcessedResult:
-    feature_json_path: str
+    dataset_json_path: str
     report_json_path: str
     parquet_path: str
     metadata_path: str
@@ -41,7 +41,7 @@ def test_full_run_calls_pipeline(monkeypatch) -> None:
             raw_result=_FakeRawResult(run_id="r", files={}, row_counts={}),
             aligned_json_path="data/interim/aligned.json",
             processed_result=_FakeProcessedResult(
-                feature_json_path="data/processed/f.json",
+                dataset_json_path="data/processed/f.json",
                 report_json_path="data/processed/r.json",
                 parquet_path="data/processed/p.parquet",
                 metadata_path="data/processed/m.json",
@@ -65,7 +65,7 @@ def test_full_run_calls_pipeline(monkeypatch) -> None:
             "--processed-output-dir",
             "data/processed",
             "--dataset-name",
-            "features",
+            "aligned_dataset",
             "--rpc-mode",
             "feehistory",
             "--min-uniswap5-coverage",
@@ -79,7 +79,7 @@ def test_full_run_calls_pipeline(monkeypatch) -> None:
     assert exit_code == 0
     assert captured["raw_output_dir"] == "data/raw"
     assert captured["processed_output_dir"] == "data/processed"
-    assert captured["dataset_name"] == "features"
+    assert captured["dataset_name"] == "aligned_dataset"
     assert captured["rpc_mode"] == "feehistory"
     assert captured["min_uniswap5_coverage"] == 0.8
     assert captured["max_uniswap30_stale_share"] == 0.9

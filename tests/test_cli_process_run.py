@@ -10,7 +10,7 @@ from ingestion import cli
 
 class _FakeResult:
     def __init__(self) -> None:
-        self.feature_json_path = "data/processed/f.features.json"
+        self.dataset_json_path = "data/processed/f.dataset.json"
         self.report_json_path = "data/processed/f.missingness.json"
         self.parquet_path = "data/processed/f.parquet"
         self.metadata_path = "data/processed/f.metadata.json"
@@ -40,13 +40,11 @@ def test_process_run_calls_pipeline(monkeypatch, tmp_path: Path) -> None:
             "--output-dir",
             "data/processed",
             "--dataset-name",
-            "features",
+            "aligned_dataset",
             "--realized-vol-window",
             "5",
             "--annualization-minutes",
             "100",
-            "--gas-weight-bps-per-gwei",
-            "0.1",
             "--fail-on-warnings",
         ]
     )
@@ -54,8 +52,7 @@ def test_process_run_calls_pipeline(monkeypatch, tmp_path: Path) -> None:
     assert exit_code == 0
     assert isinstance(captured["records"], list)
     assert captured["output_dir"] == "data/processed"
-    assert captured["dataset_name"] == "features"
+    assert captured["dataset_name"] == "aligned_dataset"
     assert captured["realized_vol_window"] == 5
     assert captured["annualization_minutes"] == 100
-    assert captured["gas_weight_bps_per_gwei"] == 0.1
     assert captured["fail_on_warnings"] is True

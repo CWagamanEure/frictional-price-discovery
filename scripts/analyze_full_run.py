@@ -47,7 +47,7 @@ def main() -> int:
     run_id = summary.get("raw_run_id")
     row_counts = summary.get("raw_row_counts", {})
     quality_issues = summary.get("quality_issues", [])
-    basis = summary.get("basis_summary", {})
+    dataset_summary = summary.get("dataset_summary", {})
 
     print(f"summary: {summary_path}")
     print(f"raw_run_id: {run_id}")
@@ -84,10 +84,11 @@ def main() -> int:
     print(f"stale_share_uniswap5: {uni5_stale}")
     print(f"stale_share_uniswap30: {uni30_stale}")
 
-    b5 = basis.get("basis_5_bps", {}) if isinstance(basis, dict) else {}
-    b30 = basis.get("basis_30_bps", {}) if isinstance(basis, dict) else {}
-    print(f"basis_5_bps: {b5}")
-    print(f"basis_30_bps: {b30}")
+    print(f"dataset_summary: {dataset_summary}")
+    artifacts = summary.get("artifacts", {})
+    if isinstance(artifacts, dict):
+        print(f"dataset_json: {artifacts.get('dataset_json')}")
+        print(f"parquet: {artifacts.get('parquet')}")
     return 0
 
 

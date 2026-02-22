@@ -1,4 +1,4 @@
-"""Full pipeline orchestration: raw ingest -> align -> process + quality gates."""
+"""Full pipeline orchestration: raw ingest -> align -> dataset export + quality gates."""
 
 from __future__ import annotations
 
@@ -44,19 +44,6 @@ def _to_float(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return parsed
-
-
-def _quantile(values: list[float], q: float) -> float | None:
-    if not values:
-        return None
-    if len(values) == 1:
-        return values[0]
-    sorted_values = sorted(values)
-    pos = (len(sorted_values) - 1) * q
-    low = int(pos)
-    high = min(low + 1, len(sorted_values) - 1)
-    frac = pos - low
-    return sorted_values[low] + (sorted_values[high] - sorted_values[low]) * frac
 
 
 def evaluate_alignment_quality(
@@ -185,19 +172,18 @@ def evaluate_alignment_quality(
     return metrics, issues
 
 
-def _basis_summary(feature_rows: list[dict[str, Any]]) -> dict[str, Any]:
-    out: dict[str, Any] = {}
-    for key in ("basis_5_bps", "basis_30_bps"):
-        values = [_to_float(row.get(key)) for row in feature_rows]
-        finite = sorted(v for v in values if v is not None)
-        out[key] = {
-            "count": len(finite),
-            "p50": _quantile(finite, 0.50),
-            "p90": _quantile(finite, 0.90),
-            "p99": _quantile(finite, 0.99),
-            "max_abs": (max(abs(v) for v in finite) if finite else None),
-        }
-    return out
+def _dataset_summary(dataset_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    columns: set[str] = set()
+    for row in dataset_rows:
+        columns.update(row.keys())
+    realized_vol_non_null = sum(
+        1 for row in dataset_rows if _to_float(row.get("realized_vol_annualized")) is not None
+    )
+    return {
+        "row_count": len(dataset_rows),
+        "column_count": len(columns),
+        "realized_vol_non_null_count": realized_vol_non_null,
+    }
 
 
 def run_full_pipeline(
@@ -207,7 +193,7 @@ def run_full_pipeline(
     raw_output_dir: str = "data/raw",
     interim_output_json: str = "data/interim/aligned_records.json",
     processed_output_dir: str = "data/processed",
-    dataset_name: str = "features",
+    dataset_name: str = "aligned_dataset",
     graph_endpoint: str | None = None,
     graph_api_key: str | None = None,
     graph_subgraph_id: str | None = None,
@@ -223,7 +209,6 @@ def run_full_pipeline(
     raw_format: str = "parquet",
     realized_vol_window: int = 30,
     annualization_minutes: int = 525_600,
-    gas_weight_bps_per_gwei: float = 0.02,
     fail_on_warnings: bool = False,
     min_uniswap5_coverage: float = 0.9,
     min_uniswap30_coverage: float = 0.05,
@@ -278,10 +263,9 @@ def run_full_pipeline(
         dataset_name=dataset_name,
         realized_vol_window=realized_vol_window,
         annualization_minutes=annualization_minutes,
-        gas_weight_bps_per_gwei=gas_weight_bps_per_gwei,
         fail_on_warnings=fail_on_warnings,
     )
-    feature_rows = _read_json_list(processed_result.feature_json_path)
+    dataset_rows = _read_json_list(processed_result.dataset_json_path)
 
     summary_payload = {
         "run_time_utc": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
@@ -289,11 +273,11 @@ def run_full_pipeline(
         "raw_row_counts": raw_result.row_counts,
         "quality_metrics": quality_metrics,
         "quality_issues": quality_issues,
-        "basis_summary": _basis_summary(feature_rows),
+        "dataset_summary": _dataset_summary(dataset_rows),
         "artifacts": {
             "raw": raw_result.files,
             "aligned_json": aligned_json_path,
-            "features_json": processed_result.feature_json_path,
+            "dataset_json": processed_result.dataset_json_path,
             "missingness_report_json": processed_result.report_json_path,
             "parquet": processed_result.parquet_path,
             "metadata_json": processed_result.metadata_path,

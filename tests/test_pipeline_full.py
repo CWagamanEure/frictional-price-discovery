@@ -22,7 +22,7 @@ class _FakeRawResult:
 
 @dataclass(frozen=True)
 class _FakeProcessedResult:
-    feature_json_path: str
+    dataset_json_path: str
     report_json_path: str
     parquet_path: str
     metadata_path: str
@@ -84,14 +84,16 @@ def test_run_full_pipeline_writes_summary(monkeypatch, tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    features_path = tmp_path / "features.json"
-    features_path.write_text(
+    dataset_path = tmp_path / "dataset.json"
+    dataset_path.write_text(
         json.dumps(
             [
                 {
                     "minute_utc": "2025-01-01T00:00:00Z",
-                    "basis_5_bps": 10.0,
-                    "basis_30_bps": 12.0,
+                    "coinbase_close": 100.0,
+                    "uniswap5_token0_price": 100.1,
+                    "uniswap30_token0_price": 100.2,
+                    "realized_vol_annualized": None,
                 }
             ]
         ),
@@ -119,7 +121,7 @@ def test_run_full_pipeline_writes_summary(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
         "ingestion.pipeline_full.run_processed_pipeline",
         lambda *args, **kwargs: _FakeProcessedResult(
-            feature_json_path=str(features_path),
+            dataset_json_path=str(dataset_path),
             report_json_path=str(report_path),
             parquet_path=str(parquet_path),
             metadata_path=str(metadata_path),
@@ -137,7 +139,8 @@ def test_run_full_pipeline_writes_summary(monkeypatch, tmp_path: Path) -> None:
     assert summary_path.exists()
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary["raw_run_id"] == "fake_run"
-    assert summary["basis_summary"]["basis_5_bps"]["p50"] == 10.0
+    assert summary["dataset_summary"]["row_count"] == 1
+    assert summary["artifacts"]["dataset_json"] == str(dataset_path)
 
 
 def test_run_full_pipeline_quality_gate_fail(monkeypatch, tmp_path: Path) -> None:
